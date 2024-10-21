@@ -29,3 +29,4 @@ jobs:
 
       - name: Run the bash script
         run: ./2024-10-20-example.sh
+        run: ./2024-10-20-example.sh --dirty
