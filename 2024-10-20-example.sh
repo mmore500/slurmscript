@@ -8,11 +8,11 @@ echo "configuration ==========================================================="
 JOBDATE="$(date '+%Y-%m-%d')"
 echo "JOBDATE ${JOBDATE}"
 
-JOBNAME="$(basename "$0")"
+JOBNAME="$(basename -s .sh "$0")"
 echo "JOBNAME ${JOBNAME}"
 
-PROJECTNAME="$(basename -s .git "$(git remote get-url origin)")"
-echo "PROJECTNAME ${PROJECTNAME}"
+JOBPROJECT="$(basename -s .git "$(git remote get-url origin)")"
+echo "JOBPROJECT ${JOBPROJECT}"
 
 HSTRAT_REVISION="469fdb71a01923629243d9828bbe69b022aa8ebe"
 echo "HSTRAT_REVISION ${HSTRAT_REVISION}"
@@ -48,7 +48,7 @@ if ! [ -e "${HOME}/scratch" ]; then
 fi
 
 echo "setup BATCHDIR =========================================================="
-BATCHDIR="${HOME}/scratch/${JOBDATE}/${JOBNAME}"
+BATCHDIR="${HOME}/scratch/${JOBPROJECT}/${JOBDATE}/${JOBNAME}"
 if [ -e "${BATCHDIR}" ]; then
     echo "BATCHDIR ${BATCHDIR} exists, clearing it"
 fi
@@ -127,11 +127,16 @@ shopt -s globstar
 handlefail() {
     echo ">>>error<<<" || :
     awk 'NR>L-4 && NR<L+4 { printf "%-5d%3s%s\n",NR,(NR==L?">>>":""),\$0 }' L=\$1 \$0 || :
-    scontrol requeuehold "\${SLURM_JOBID}" || :
+    $(which scontrol || which echo) scontrol requeuehold "${SLURM_JOBID:-nojid}"
     ln -sf "\${JOBSCRIPT}" "\${HOME}/joblatest/jobscript.failed" || :
     ln -sf "\${JOBLOG}" "\${HOME}/joblatest/joblog.failed" || :
 }
 trap 'handlefail $LINENO' ERR
+
+echo "initialization telemetry ------------------------------------ \${SECONDS}"
+echo "HSTRAT_REVISION ${HSTRAT_REVISION}"
+echo "SOURCE_REVISION ${SOURCE_REVISION}"
+echo "BATCHDIR ${BATCHDIR}"
 
 echo "cc SLURM script --------------------------------------------- \${SECONDS}"
 JOBSCRIPT="\${HOME}/jobscript/\${SLURM_JOB_ID:-nojid}"
@@ -149,7 +154,7 @@ ln -sf "\${JOBLOG}" "${BATCHDIR_JOBLOG}/\${SLURM_JOB_ID:-nojid}"
 ln -sf "\${JOBLOG}" "\${HOME}/joblatest/joblog.launched"
 
 echo "setup JOBDIR ------------------------------------------------ \${SECONDS}"
-JOBDIR="${BATCHDIR}/__\${SLURM_JOB_ID:-nojid}"
+JOBDIR="${BATCHDIR}/__\${SLURM_ARRAY_TASK_ID:-\${SLURM_JOB_ID:-\${RANDOM}}}"
 echo "JOBDIR \${JOBDIR}"
 if [ -e "\${JOBDIR}" ]; then
     echo "JOBDIR \${JOBDIR} exists, clearing it"
@@ -173,19 +178,8 @@ echo "python3.10 \$(which python3.10)"
 echo "python3.10 --version \$(python3.10 --version)"
 
 echo "setup dependencies- ----------------------------------------- \${SECONDS}"
-source ${BATCHDIR_ENV}/bin/activate
-python3.10 -m pip freeze
-
-echo "initialization telemetry ------------------------------------ \${SECONDS}"
-echo "HSTRAT_REVISION ${HSTRAT_REVISION}"
-echo "SOURCE_REVISION ${SOURCE_REVISION}"
-echo "BATCHDIR ${BATCHDIR}"
-
-echo "setup JOBDIR ------------------------------------------------ \${SECONDS}"
-JOBDIR="${BATCHDIR}/\${SLURM_JOB_ID:-nojid}"
-echo "JOBDIR \${JOBDIR}"
-cd "\${JOBDIR}"
-echo "PWD \${PWD}"
+source "${BATCHDIR_ENV}/bin/activate"
+python3.10 -m uv pip freeze
 
 EOF
 )
@@ -255,6 +249,8 @@ print("python heredoc complete")
 EOF_
 
 echo "finalization telemetry -------------------------------------- \${SECONDS}"
+ls -l \${JOBDIR}
+du -h \${JOBDIR}
 ln -sf "\${JOBSCRIPT}" "${HOME}/joblatest/jobscript.finished"
 ln -sf "\${JOBLOG}" "${HOME}/joblatest/joblog.finished"
 echo "SECONDS \${SECONDS}"
@@ -291,28 +287,55 @@ cat > "${SBATCH_FILE}" << EOF
 
 ${JOB_PREAMBLE}
 
+echo "BATCHDIR ${BATCHDIR}"
+ls -l "${BATCHDIR}"
+
 echo "finalize ---------------------------------------------------- \${SECONDS}"
-echo "   - archive job dirs"
-tar -C "${BATCHDIR}/.." -czfh "${JOBRESULT}/a=jobarchive+date=${JOBDATE}+job=\${SLURM_JOB_NAME}+ext=.tar.gz" "$(basename "${BATCHDIR}")"/__*
+echo "   - archive job dir"
+pushd "${BATCHDIR}/.."
+    tar czvf \
+    "${BATCHDIR_JOBRESULT}/a=jobarchive+date=${JOBDATE}+job=${JOBNAME}+ext=.tar.gz" \
+    "$(basename "${BATCHDIR}")"/__*
+popd
+
 echo "   - join result"
 ls -1 "${BATCHDIR}"/__*/**/a=result+* \
     | tee /dev/stdout \
     | python3.10 -m joinem --progress \
-        "${BATCHDIR_JOBRESULT}/a=result+date=${JOBDATE}+job=\${SLURM_JOB_NAME}+ext=.pqt"
+        "${BATCHDIR_JOBRESULT}/a=result+date=${JOBDATE}+job=${JOBNAME}+ext=.csv"
+ls -l "${BATCHDIR_JOBRESULT}"
+du -h "${BATCHDIR_JOBRESULT}"
+
 echo "   - archive joblog"
-tar -C "${BATCHDIR}" -czfh "${JOBRESULT}/a=joblog+date=${JOBDATE}+job=\${SLURM_JOB_NAME}+ext=.tar.gz" joblog
+pushd "${BATCHDIR}"
+    tar czfv \
+    "${BATCHDIR_JOBRESULT}/a=joblog+date=${JOBDATE}+job=${JOBNAME}+ext=.tar.gz" \
+    -h "$(basename "${BATCHDIR_JOBLOG}")"
+popd
+
 echo "   - archive jobscript"
-tar -C "${BATCHDIR}" -czfh "${JOBRESULT}/a=jobscript+date=${JOBDATE}+job=\${SLURM_JOB_NAME}+ext=.tar.gz" jobscript
+pushd "${BATCHDIR}"
+    tar czfv \
+    "$(basename "${BATCHDIR_JOBRESULT}")/a=jobscript+date=${JOBDATE}+job=${JOBNAME}+ext=.tar.gz" \
+    -h "$(basename ${BATCHDIR_JOBSCRIPT})"
+popd
+
+ls -l "${BATCHDIR}"
 
 echo "cleanup ----------------------------------------------------- \${SECONDS}"
-for f in "${BATCHDIR}/_"*; do
+cd "${BATCHDIR}"
+for f in _*; do
     echo "tar and rm \$f"
-    tar -C "${BATCHDIR}" -cfh "\${f}.tar" "\${f}" && rm -rf "\${f}"
+    tar cf "\${f}.tar" -h "\${f}"
+    rm -rf "\${f}"
 done
+cd
+ls -l "${BATCHDIR}"
 
 echo "finalization telemetry -------------------------------------- \${SECONDS}"
 ln -sf "\${JOBSCRIPT}" "\${HOME}/joblatest/jobscript.completed"
 ln -sf "\${JOBLOG}" "\${HOME}/joblatest/joblog.completed"
+ln -sf "${BATCHDIR_JOBRESULT}" "\${HOME}/joblatest/jobresult.completed"
 echo "SECONDS \${SECONDS}"
 echo '>>>complete<<<'
 
@@ -325,5 +348,6 @@ echo "submit sbatch file ====================================================="
 $(which sbatch && echo --job-name="${JOBNAME}" --dependency=singleton || which bash) "${SBATCH_FILE}"
 
 echo "finalization telemetry ================================================="
+echo "BATCHDIR ${BATCHDIR}"
 echo "SECONDS ${SECONDS}"
 echo '>>>complete<<<'
