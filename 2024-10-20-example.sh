@@ -308,7 +308,7 @@ du -h "${BATCHDIR_JOBRESULT}"
 
 echo "   - archive joblog"
 pushd "${BATCHDIR}"
-    tar czfv \
+    tar czf \
     "${BATCHDIR_JOBRESULT}/a=joblog+date=${JOBDATE}+job=${JOBNAME}+ext=.tar.gz" \
     -h "$(basename "${BATCHDIR_JOBLOG}")"
 popd
