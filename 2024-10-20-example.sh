@@ -48,7 +48,7 @@ if ! [ -e "${HOME}/scratch" ]; then
 fi
 
 echo "setup BATCHDIR =========================================================="
-BATCHDIR="${HOME}/scratch/${JOBPROJECT}/${JOBDATE}/${JOBNAME}"
+BATCHDIR="${HOME}/scratch/${JOBPROJECT}/${JOBNAME}/${JOBDATE}"
 if [ -e "${BATCHDIR}" ]; then
     echo "BATCHDIR ${BATCHDIR} exists, clearing it"
 fi
