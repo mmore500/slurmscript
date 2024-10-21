@@ -27,6 +27,8 @@ jobs:
           sudo apt-get install -y python3.10-venv
           sudo apt-get install -y git lshw
 
-      - name: Run the bash script
+      - name: Test clean
         run: ./2024-10-20-example.sh
+
+      - name: Test dirty
         run: ./2024-10-20-example.sh --dirty
