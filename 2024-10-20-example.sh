@@ -300,7 +300,7 @@ popd
 
 echo "   - join result"
 ls -1 "${BATCHDIR}"/__*/**/a=result+* \
-    | tee /dev/stdout \
+    | tee /dev/stderr \
     | python3.10 -m joinem --progress \
         "${BATCHDIR_JOBRESULT}/a=result+date=${JOBDATE}+job=${JOBNAME}+ext=.csv"
 ls -l "${BATCHDIR_JOBRESULT}"
