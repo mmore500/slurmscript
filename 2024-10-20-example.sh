@@ -56,6 +56,8 @@ rm -rf "${BATCHDIR}"
 mkdir -p "${BATCHDIR}"
 echo "BATCHDIR ${BATCHDIR}"
 
+ln -sf "${BATCHDIR}" "${HOME}/scratch/${JOBPROJECT}/${JOBNAME}/latest"
+
 BATCHDIR_JOBLOG="${BATCHDIR}/joblog"
 echo "BATCHDIR_JOBLOG ${BATCHDIR_JOBLOG}"
 mkdir -p "${BATCHDIR_JOBLOG}"
