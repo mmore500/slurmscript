@@ -129,9 +129,9 @@ shopt -s globstar
 handlefail() {
     echo ">>>error<<<" || :
     awk 'NR>L-4 && NR<L+4 { printf "%-5d%3s%s\n",NR,(NR==L?">>>":""),\$0 }' L=\$1 \$0 || :
-    $(which scontrol || which echo) scontrol requeuehold "${SLURM_JOBID:-nojid}"
     ln -sf "\${JOBSCRIPT}" "\${HOME}/joblatest/jobscript.failed" || :
     ln -sf "\${JOBLOG}" "\${HOME}/joblatest/joblog.failed" || :
+    $(which scontrol || which echo) requeuehold "${SLURM_JOBID:-nojid}"
 }
 trap 'handlefail $LINENO' ERR
 
