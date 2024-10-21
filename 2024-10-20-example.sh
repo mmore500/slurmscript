@@ -78,7 +78,7 @@ else
         rm -rf "${BATCHDIR_JOBSOURCE}/.git"
         git -C "${BATCHDIR_JOBSOURCE}" init \
         && git -C "${BATCHDIR_JOBSOURCE}" remote add origin "${SOURCE_REMOTE_URL}" \
-        && git -C "${BATCHDIR_JOBSOURCE}" fetch origin "${HSTRAT_REVISION}" --depth=1 \
+        && git -C "${BATCHDIR_JOBSOURCE}" fetch origin "${SOURCE_REVISION}" --depth=1 \
         && git -C "${BATCHDIR_JOBSOURCE}" reset --hard FETCH_HEAD \
         && break || echo "failed to clone, retrying..."
         if [ $attempt -eq 5 ]; then
